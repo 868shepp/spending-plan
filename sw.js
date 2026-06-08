@@ -1,5 +1,11 @@
 const CACHE = 'csp-v1';
-const ASSETS = ['/', '/index.html', '/manifest.json'];
+const ASSETS = [
+  '/spending-plan/',
+  '/spending-plan/index.html',
+  '/spending-plan/manifest.json',
+  '/spending-plan/icon-192.png',
+  '/spending-plan/icon-512.png'
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(
