@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Conscious Spending Plan</title>
+<!-- PWA -->
+<link rel="manifest" href="manifest.json">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Spending">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#18170f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f7f6f2;
+    --surface: #ffffff;
+    --border: #e6e4de;
+    --text: #18170f;
+    --muted: #8c8a82;
+    --faint: #f0efe9;
+    --fixed-color: #3B6D11;
+    --invest-color: #7F77DD;
+    --savings-color: #185FA5;
+    --guilt-color: #BA7517;
+    --invest-bg: #EEEDFE;
+    --danger: #E24B4A;
+    --up: #E24B4A;
+    --down: #3B6D11;
+    --mono: 'DM Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+  }
+
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  /* LANDING */
+  #landing { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem; gap: 3rem; }
+  .landing-logo { font-family: var(--mono); font-size: 10px; letter-spacing: 0.16em; color: var(--muted); text-transform: uppercase; margin-bottom: 10px; }
+  .landing-title { font-size: 28px; font-weight: 300; letter-spacing: -0.02em; line-height: 1.2; }
+  .landing-title em { font-style: italic; }
+  .landing-cards { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+  .role-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.75rem 2rem; width: 180px; cursor: pointer; transition: border-color 0.15s, box-shadow 0.15s; user-select: none; }
+  .role-card:hover { border-color: var(--text); box-shadow: 0 2px 16px rgba(0,0,0,0.06); }
+  .role-name { font-size: 15px; font-weight: 500; margin-bottom: 6px; }
+  .role-desc { font-size: 12px; color: var(--muted); line-height: 1.55; }
+  .role-card.admin { border-top: 2px solid var(--text); }
+  .role-card.viewer { border-top: 2px solid var(--muted); }
+
+  /* PIN */
+  #pinOverlay { display: none; position: fixed; inset: 0; background: rgba(24,23,15,0.5); z-index: 200; align-items: center; justify-content: center; }
+  #pinOverlay.open { display: flex; }
+  .pin-box { background: var(--surface); border-radius: 14px; padding: 2rem 1.75rem; width: 280px; text-align: center; border: 1px solid var(--border); }
+  .pin-title { font-size: 14px; font-weight: 500; margin-bottom: 2px; }
+  .pin-sub { font-size: 12px; color: var(--muted); margin-bottom: 1.75rem; }
+  .pin-dots { display: flex; justify-content: center; gap: 10px; margin-bottom: 6px; }
+  .pin-dot { width: 10px; height: 10px; border-radius: 50%; border: 1.5px solid var(--border); background: transparent; transition: all 0.12s; }
+  .pin-dot.filled { background: var(--text); border-color: var(--text); }
+  .pin-dot.error { background: var(--danger); border-color: var(--danger); }
+  .pin-error-msg { font-size: 11px; color: var(--danger); min-height: 18px; margin-bottom: 1.25rem; }
+  .pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 1rem; }
+  .pin-key { font-family: var(--mono); font-size: 16px; font-weight: 500; background: var(--faint); border: 1px solid var(--border); border-radius: 8px; padding: 13px; cursor: pointer; color: var(--text); transition: background 0.1s; line-height: 1; }
+  .pin-key:hover { background: var(--border); }
+  .pin-key.del { font-size: 13px; color: var(--muted); font-family: var(--sans); }
+  .pin-key.empty { visibility: hidden; }
+  .pin-cancel { font-family: var(--sans); font-size: 12px; color: var(--muted); background: none; border: none; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+  /* APP */
+  #app { display: none; padding: 2.5rem 1rem 5rem; }
+  #app.visible { display: block; }
+  .wrap { max-width: 780px; margin: 0 auto; }
+
+  header { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 2.5rem; flex-wrap: wrap; }
+  .logo { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+  .tagline { font-size: 20px; font-weight: 300; letter-spacing: -0.01em; }
+  .tagline em { font-style: italic; }
+  .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .month-selector { font-family: var(--mono); font-size: 12px; background: none; border: none; color: var(--muted); cursor: pointer; outline: none; appearance: none; -webkit-appearance: none; }
+  .mode-badge { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); color: var(--muted); cursor: pointer; background: none; transition: all 0.15s; }
+  .mode-badge.admin-badge { background: var(--text); color: #fff; border-color: var(--text); }
+
+  .income-strip { background: var(--text); color: #fff; border-radius: 10px; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; gap: 1rem; flex-wrap: wrap; }
+  .income-label { font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; opacity: 0.45; margin-bottom: 2px; }
+  .income-val { font-family: var(--mono); font-size: 26px; font-weight: 500; letter-spacing: -0.02em; }
+  .income-edit { font-family: var(--sans); font-size: 12px; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.18); border-radius: 6px; padding: 5px 13px; cursor: pointer; white-space: nowrap; transition: background 0.15s; }
+  .income-edit:hover { background: rgba(255,255,255,0.18); }
+
+  .viewer-banner { border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 1.1rem; margin-bottom: 1.25rem; display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+  .viewer-banner-text { font-size: 12px; color: var(--muted); }
+
+  .pct-row { display: flex; gap: 3px; margin-bottom: 1.25rem; height: 3px; }
+  .pct-seg { border-radius: 99px; }
+  .pct-seg.fixed { background: var(--fixed-color); }
+  .pct-seg.invest { background: var(--invest-color); }
+  .pct-seg.savings { background: var(--savings-color); }
+  .pct-seg.guilt { background: var(--guilt-color); }
+
+  /* Buckets */
+  .buckets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+  .bucket { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.2rem; }
+  .bucket-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.7rem; }
+  .bucket-name { font-size: 11px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em; }
+  .bucket-name.fixed { color: var(--fixed-color); }
+  .bucket-name.invest { color: var(--invest-color); }
+  .bucket-name.savings { color: var(--savings-color); }
+  .bucket-name.guilt { color: var(--guilt-color); }
+  .bucket-pct { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .bucket-numbers { display: flex; align-items: baseline; gap: 5px; margin-bottom: 4px; flex-wrap: wrap; }
+  .bucket-spent-amt { font-family: var(--mono); font-size: 20px; font-weight: 500; letter-spacing: -0.02em; }
+  .bucket-of { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .bucket-of.over { color: var(--danger); }
+  .progress-track { height: 3px; background: var(--faint); border-radius: 99px; overflow: hidden; margin-bottom: 5px; }
+  .progress-fill { height: 100%; border-radius: 99px; transition: width 0.4s ease; }
+  .fixed .progress-fill { background: var(--fixed-color); }
+  .invest .progress-fill { background: var(--invest-color); }
+  .savings .progress-fill { background: var(--savings-color); }
+  .guilt .progress-fill { background: var(--guilt-color); }
+  .over-budget .progress-fill { background: var(--danger) !important; }
+  .bucket-rem { font-family: var(--mono); font-size: 11px; }
+  .bucket-rem.pos { color: var(--muted); }
+  .bucket-rem.neg { color: var(--danger); font-weight: 500; }
+  .bucket-recurrings { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+  .rec-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  .rec-row span:last-child { font-family: var(--mono); font-size: 11px; }
+
+  /* Down payment goal */
+  .goal-block { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .goal-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .goal-label { font-size: 11px; font-weight: 500; color: var(--savings-color); text-transform: uppercase; letter-spacing: 0.08em; }
+  .goal-pct { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .goal-track { height: 6px; background: var(--faint); border-radius: 99px; overflow: hidden; margin-bottom: 6px; }
+  .goal-fill { height: 100%; border-radius: 99px; background: var(--savings-color); transition: width 0.5s ease; }
+  .goal-numbers { display: flex; justify-content: space-between; align-items: baseline; }
+  .goal-saved { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--savings-color); }
+  .goal-target { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .goal-eta { margin-top: 5px; font-size: 11px; color: var(--muted); }
+  .goal-eta strong { font-weight: 500; color: var(--text); }
+
+  /* ── MONTH ON MONTH ── */
+  .mom-section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+  }
+
+  .mom-header {
+    padding: 0.85rem 1.2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .mom-months {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .mom-month-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .mom-vs {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--border);
+  }
+
+  .mom-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .mom-grid:last-child { border-bottom: none; }
+
+  .mom-cell {
+    padding: 0.85rem 1.2rem;
+    border-right: 1px solid var(--border);
+  }
+
+  .mom-cell:last-child { border-right: none; }
+
+  .mom-bucket-name {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+
+  .mom-bucket-name.fixed { color: var(--fixed-color); }
+  .mom-bucket-name.invest { color: var(--invest-color); }
+  .mom-bucket-name.savings { color: var(--savings-color); }
+  .mom-bucket-name.guilt { color: var(--guilt-color); }
+
+  .mom-amounts {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+    margin-bottom: 4px;
+    flex-wrap: wrap;
+  }
+
+  .mom-this {
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+
+  .mom-last {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+
+  .mom-delta {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 2px;
+  }
+
+  /* For spending buckets: up = bad (red), down = good (green) */
+  .mom-delta.spend-up { color: var(--up); }
+  .mom-delta.spend-down { color: var(--down); }
+  /* For savings/invest: up = good (green), down = bad (red) */
+  .mom-delta.save-up { color: var(--down); }
+  .mom-delta.save-down { color: var(--up); }
+  .mom-delta.neutral { color: var(--muted); }
+
+  .mom-bar-wrap {
+    margin-top: 6px;
+    height: 2px;
+    background: var(--faint);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+
+  .mom-bar-fill {
+    height: 100%;
+    border-radius: 99px;
+    transition: width 0.4s ease;
+    opacity: 0.5;
+  }
+
+  .mom-no-data {
+    padding: 1.5rem 1.2rem;
+    font-size: 12px;
+    color: var(--muted);
+    font-style: italic;
+  }
+
+  /* Add form */
+  .add-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.1rem 1.2rem; margin-bottom: 1.25rem; }
+  .section-label { font-size: 10px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); margin-bottom: 0.85rem; }
+  .add-form { display: grid; grid-template-columns: 1fr 110px 160px auto; gap: 8px; align-items: center; }
+  .add-form input, .add-form select { font-family: var(--sans); font-size: 13px; background: var(--faint); border: 1px solid var(--border); border-radius: 8px; padding: 8px 11px; color: var(--text); outline: none; width: 100%; transition: border-color 0.15s; }
+  .add-form input::placeholder { color: var(--muted); }
+  .add-form input:focus, .add-form select:focus { border-color: var(--muted); background: var(--surface); }
+  .add-btn { font-family: var(--sans); font-size: 13px; font-weight: 500; background: var(--text); color: #fff; border: none; border-radius: 8px; padding: 8px 16px; cursor: pointer; white-space: nowrap; transition: opacity 0.15s; }
+  .add-btn:hover { opacity: 0.75; }
+
+  /* Transactions */
+  .tx-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  .tx-header { padding: 0.85rem 1.2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); gap: 0.5rem; flex-wrap: wrap; }
+  .tx-filters { display: flex; gap: 5px; flex-wrap: wrap; }
+  .filter-btn { font-family: var(--sans); font-size: 11px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); background: none; color: var(--muted); cursor: pointer; transition: all 0.12s; }
+  .filter-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+  .tx-list { list-style: none; }
+  .tx-item { display: flex; align-items: center; padding: 0.65rem 1.2rem; border-bottom: 1px solid var(--border); gap: 12px; transition: background 0.1s; }
+  .tx-item:last-child { border-bottom: none; }
+  .tx-item:hover { background: var(--faint); }
+  .tx-pip { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .tx-pip.fixed { background: var(--fixed-color); }
+  .tx-pip.invest { background: var(--invest-color); }
+  .tx-pip.savings { background: var(--savings-color); }
+  .tx-pip.guilt { background: var(--guilt-color); }
+  .tx-body { flex: 1; min-width: 0; }
+  .tx-desc { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tx-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .tx-right { text-align: right; flex-shrink: 0; }
+  .tx-amount { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+  .tx-date { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .tx-del { background: none; border: none; cursor: pointer; color: var(--muted); font-size: 14px; padding: 2px 4px; opacity: 0; transition: opacity 0.12s; line-height: 1; flex-shrink: 0; }
+  .tx-item:hover .tx-del { opacity: 1; }
+  .tx-empty { padding: 3rem; text-align: center; color: var(--muted); font-size: 13px; }
+
+  .tip { margin-top: 1.25rem; padding: 0.85rem 1.1rem; background: var(--invest-bg); border-radius: 10px; }
+  .tip-text { font-size: 12px; color: #3C3489; line-height: 1.6; }
+  .tip-text strong { font-weight: 500; }
+
+  /* Plan modal */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(24,23,15,0.45); z-index: 100; align-items: center; justify-content: center; }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--surface); border-radius: 14px; padding: 1.5rem; width: 340px; border: 1px solid var(--border); }
+  .modal-title { font-size: 14px; font-weight: 500; margin-bottom: 4px; }
+  .modal-sub { font-size: 12px; color: var(--muted); margin-bottom: 1.25rem; line-height: 1.5; }
+  .modal-field { margin-bottom: 10px; }
+  .modal-field label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; display: block; margin-bottom: 5px; }
+  .modal-field input { font-family: var(--mono); font-size: 20px; font-weight: 500; width: 100%; background: var(--faint); border: 1px solid var(--border); border-radius: 8px; padding: 9px 13px; color: var(--text); outline: none; }
+  .modal-field input:focus { background: var(--surface); border-color: var(--muted); }
+  .modal-pcts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 1rem; }
+  .modal-pct-field label { font-size: 10px; color: var(--muted); display: block; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.1em; }
+  .modal-pct-field input { font-family: var(--mono); font-size: 15px; width: 100%; background: var(--faint); border: 1px solid var(--border); border-radius: 8px; padding: 7px 10px; color: var(--text); outline: none; }
+  .pct-sum { font-size: 11px; color: var(--muted); margin-bottom: 1rem; text-align: right; }
+  .pct-sum.bad { color: var(--danger); }
+  .modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+  .btn-cancel { font-family: var(--sans); font-size: 13px; background: none; border: 1px solid var(--border); border-radius: 8px; padding: 7px 14px; cursor: pointer; color: var(--muted); }
+  .btn-save { font-family: var(--sans); font-size: 13px; font-weight: 500; background: var(--text); color: #fff; border: none; border-radius: 8px; padding: 7px 16px; cursor: pointer; }
+  .btn-save:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  .admin-only { display: none !important; }
+  body.is-admin .admin-only { display: block !important; }
+  body.is-admin .admin-only.flex { display: flex !important; }
+  body.is-admin .admin-only.grid { display: grid !important; }
+
+  @media (max-width: 600px) {
+    .buckets { grid-template-columns: 1fr; }
+    .add-form { grid-template-columns: 1fr 1fr; }
+    .add-form .add-btn { grid-column: 1 / -1; }
+    .mom-grid { grid-template-columns: repeat(2, 1fr); }
+    .mom-cell:nth-child(2) { border-right: none; }
+    .mom-cell:nth-child(2), .mom-cell:nth-child(4) { border-right: none; }
+    .mom-cell:nth-child(1), .mom-cell:nth-child(2) { border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="landing">
+  <div style="text-align:center">
+    <div class="landing-logo">Conscious Spending Plan</div>
+    <div class="landing-title">Spend <em>extravagantly</em><br>on what you love.</div>
+  </div>
+  <div class="landing-cards">
+    <div class="role-card admin" onclick="selectAdmin()">
+      <div class="role-name">Admin</div>
+      <div class="role-desc">Full access — income, budgets, transactions &amp; settings</div>
+    </div>
+    <div class="role-card viewer" onclick="selectViewer()">
+      <div class="role-name">Viewer</div>
+      <div class="role-desc">See spending progress without sensitive financial details</div>
+    </div>
+  </div>
+</div>
+
+<!-- PIN -->
+<div id="pinOverlay">
+  <div class="pin-box">
+    <div class="pin-title">Admin access</div>
+    <div class="pin-sub">Enter your 4-digit PIN</div>
+    <div class="pin-dots">
+      <div class="pin-dot" id="d0"></div><div class="pin-dot" id="d1"></div>
+      <div class="pin-dot" id="d2"></div><div class="pin-dot" id="d3"></div>
+    </div>
+    <div class="pin-error-msg" id="pinError"></div>
+    <div class="pin-pad">
+      <button class="pin-key" onclick="pinPress('1')">1</button>
+      <button class="pin-key" onclick="pinPress('2')">2</button>
+      <button class="pin-key" onclick="pinPress('3')">3</button>
+      <button class="pin-key" onclick="pinPress('4')">4</button>
+      <button class="pin-key" onclick="pinPress('5')">5</button>
+      <button class="pin-key" onclick="pinPress('6')">6</button>
+      <button class="pin-key" onclick="pinPress('7')">7</button>
+      <button class="pin-key" onclick="pinPress('8')">8</button>
+      <button class="pin-key" onclick="pinPress('9')">9</button>
+      <button class="pin-key empty"></button>
+      <button class="pin-key" onclick="pinPress('0')">0</button>
+      <button class="pin-key del" onclick="pinDel()">del</button>
+    </div>
+    <button class="pin-cancel" onclick="cancelPin()">Cancel</button>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+<div class="wrap">
+
+  <header>
+    <div>
+      <div class="logo">Conscious Spending Plan</div>
+      <div class="tagline">Spend <em>extravagantly</em> on what you love.</div>
+    </div>
+    <div class="header-right">
+      <select class="month-selector" id="monthSelect" onchange="changeMonth()"></select>
+      <button class="mode-badge" id="modeBadge" onclick="switchMode()">viewer</button>
+    </div>
+  </header>
+
+  <div class="viewer-banner" id="viewerBanner">
+    <div class="viewer-banner-text">Viewer mode — income and budget totals are hidden.</div>
+    <button class="mode-badge" onclick="switchMode()">Admin login</button>
+  </div>
+
+  <div class="income-strip admin-only flex">
+    <div>
+      <div class="income-label">Monthly take-home</div>
+      <div class="income-val" id="incomeDisplay">$8,000</div>
+    </div>
+    <button class="income-edit" onclick="openModal()">Edit plan</button>
+  </div>
+
+  <div class="pct-row">
+    <div class="pct-seg fixed" id="seg-fixed"></div>
+    <div class="pct-seg invest" id="seg-invest"></div>
+    <div class="pct-seg savings" id="seg-savings"></div>
+    <div class="pct-seg guilt" id="seg-guilt"></div>
+  </div>
+
+  <!-- Buckets -->
+  <div class="buckets">
+    <div class="bucket" id="b-fixed">
+      <div class="bucket-top">
+        <div class="bucket-name fixed">Fixed Costs</div>
+        <div class="bucket-pct admin-only" id="pct-fixed">53.7%</div>
+      </div>
+      <div class="bucket-numbers">
+        <div class="bucket-spent-amt" id="spent-fixed">$0</div>
+        <div class="bucket-of admin-only" id="of-fixed">of $4,295</div>
+      </div>
+      <div class="progress-track fixed"><div class="progress-fill" id="bar-fixed" style="width:0%"></div></div>
+      <div class="bucket-rem pos admin-only" id="rem-fixed">$4,295 remaining</div>
+      <div class="bucket-recurrings admin-only" id="rec-fixed"></div>
+    </div>
+
+    <div class="bucket" id="b-invest">
+      <div class="bucket-top">
+        <div class="bucket-name invest">Investments</div>
+        <div class="bucket-pct admin-only" id="pct-invest">6.25%</div>
+      </div>
+      <div class="bucket-numbers">
+        <div class="bucket-spent-amt" id="spent-invest">$0</div>
+        <div class="bucket-of admin-only" id="of-invest">of $500</div>
+      </div>
+      <div class="progress-track invest"><div class="progress-fill" id="bar-invest" style="width:0%"></div></div>
+      <div class="bucket-rem pos admin-only" id="rem-invest">$500 remaining</div>
+      <div class="bucket-recurrings admin-only" id="rec-invest"></div>
+    </div>
+
+    <div class="bucket" id="b-savings">
+      <div class="bucket-top">
+        <div class="bucket-name savings">Savings</div>
+        <div class="bucket-pct admin-only" id="pct-savings">20.8%</div>
+      </div>
+      <div class="bucket-numbers">
+        <div class="bucket-spent-amt" id="spent-savings">$0</div>
+        <div class="bucket-of admin-only" id="of-savings">of $1,667</div>
+      </div>
+      <div class="progress-track savings"><div class="progress-fill" id="bar-savings" style="width:0%"></div></div>
+      <div class="bucket-rem pos admin-only" id="rem-savings">$1,667 remaining</div>
+      <div class="bucket-recurrings admin-only" id="rec-savings"></div>
+      <div class="goal-block admin-only" id="goalBlock">
+        <div class="goal-header">
+          <div class="goal-label">Down Payment</div>
+          <div class="goal-pct" id="goalPct">0%</div>
+        </div>
+        <div class="goal-track"><div class="goal-fill" id="goalFill" style="width:0%"></div></div>
+        <div class="goal-numbers">
+          <div class="goal-saved" id="goalSaved">$0 saved</div>
+          <div class="goal-target">$40,000 goal</div>
+        </div>
+        <div class="goal-eta" id="goalEta">At $1,667/mo — on track in <strong>24 months</strong></div>
+      </div>
+    </div>
+
+    <div class="bucket" id="b-guilt">
+      <div class="bucket-top">
+        <div class="bucket-name guilt">Guilt-free</div>
+        <div class="bucket-pct admin-only" id="pct-guilt">19.2%</div>
+      </div>
+      <div class="bucket-numbers">
+        <div class="bucket-spent-amt" id="spent-guilt">$0</div>
+        <div class="bucket-of admin-only" id="of-guilt">of $1,538</div>
+      </div>
+      <div class="progress-track guilt"><div class="progress-fill" id="bar-guilt" style="width:0%"></div></div>
+      <div class="bucket-rem pos admin-only" id="rem-guilt">$1,538 remaining</div>
+      <div class="bucket-recurrings admin-only" id="rec-guilt"></div>
+    </div>
+  </div>
+
+  <!-- Month on Month -->
+  <div class="mom-section admin-only" id="momSection">
+    <div class="mom-header">
+      <div class="section-label" style="margin:0">Month on Month</div>
+      <div class="mom-months">
+        <div class="mom-month-label" id="momLastLabel">—</div>
+        <div class="mom-vs">vs</div>
+        <div class="mom-month-label" id="momThisLabel">—</div>
+      </div>
+    </div>
+    <div id="momBody"></div>
+  </div>
+
+  <!-- Add transaction -->
+  <div class="add-section admin-only">
+    <div class="section-label">Log a transaction</div>
+    <div class="add-form">
+      <input type="text" id="txDesc" placeholder="Description" />
+      <input type="number" id="txAmt" placeholder="Amount" min="0" step="0.01" />
+      <select id="txCat">
+        <optgroup label="Fixed Costs">
+          <option value="fixed|Rent / Mortgage">Rent / Mortgage</option>
+          <option value="fixed|Car loan">Car loan</option>
+          <option value="fixed|Car insurance">Car insurance</option>
+          <option value="fixed|Electricity">Electricity</option>
+          <option value="fixed|Water">Water</option>
+          <option value="fixed|Gas">Gas</option>
+          <option value="fixed|Groceries">Groceries</option>
+          <option value="fixed|Dad's internet">Dad's internet</option>
+          <option value="fixed|Other fixed">Other fixed</option>
+        </optgroup>
+        <optgroup label="Investments">
+          <option value="invest|401(k) / IRA">401(k) / IRA</option>
+          <option value="invest|Index funds">Index funds</option>
+          <option value="invest|Brokerage">Brokerage</option>
+          <option value="invest|Other investment">Other investment</option>
+        </optgroup>
+        <optgroup label="Savings">
+          <option value="savings|Down Payment">Down Payment</option>
+          <option value="savings|Emergency fund">Emergency fund</option>
+          <option value="savings|Travel fund">Travel fund</option>
+          <option value="savings|Other savings">Other savings</option>
+        </optgroup>
+        <optgroup label="Guilt-free">
+          <option value="guilt|Subscriptions">Subscriptions</option>
+          <option value="guilt|Trainer">Trainer</option>
+          <option value="guilt|Haircut">Haircut</option>
+          <option value="guilt|Gym">Gym</option>
+          <option value="guilt|Dining out">Dining out</option>
+          <option value="guilt|Entertainment">Entertainment</option>
+          <option value="guilt|Shopping">Shopping</option>
+          <option value="guilt|Travel">Travel</option>
+          <option value="guilt|Other fun">Other fun</option>
+        </optgroup>
+      </select>
+      <button class="add-btn" onclick="addTx()">Add</button>
+    </div>
+  </div>
+
+  <!-- Transactions -->
+  <div class="tx-section">
+    <div class="tx-header">
+      <div class="section-label" style="margin:0">Transactions</div>
+      <div class="tx-filters">
+        <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+        <button class="filter-btn" onclick="setFilter('fixed',this)">Fixed</button>
+        <button class="filter-btn" onclick="setFilter('invest',this)">Invest</button>
+        <button class="filter-btn" onclick="setFilter('savings',this)">Savings</button>
+        <button class="filter-btn" onclick="setFilter('guilt',this)">Guilt-free</button>
+      </div>
+    </div>
+    <ul class="tx-list" id="txList"></ul>
+  </div>
+
+  <div class="tip">
+    <div class="tip-text"><strong>Ramit's rule —</strong> Automate investments ($500) and savings ($1,667) on payday before you can spend them. Every month you hit your savings target puts you one month closer to your first home.</div>
+  </div>
+
+</div>
+</div>
+
+<!-- Plan modal -->
+<div class="modal-overlay" id="planModal">
+  <div class="modal">
+    <div class="modal-title">Edit plan</div>
+    <div class="modal-sub">Percentages must add up to 100%.</div>
+    <div class="modal-field">
+      <label>Monthly take-home</label>
+      <input type="number" id="incomeIn" min="0" />
+    </div>
+    <div class="modal-pcts">
+      <div class="modal-pct-field"><label>Fixed %</label><input type="number" id="pFixed" min="0" max="100" step="0.1" oninput="checkPcts()" /></div>
+      <div class="modal-pct-field"><label>Investments %</label><input type="number" id="pInvest" min="0" max="100" step="0.1" oninput="checkPcts()" /></div>
+      <div class="modal-pct-field"><label>Savings %</label><input type="number" id="pSavings" min="0" max="100" step="0.1" oninput="checkPcts()" /></div>
+      <div class="modal-pct-field"><label>Guilt-free %</label><input type="number" id="pGuilt" min="0" max="100" step="0.1" oninput="checkPcts()" /></div>
+    </div>
+    <div class="pct-sum" id="pctSum">Total: 100% ✓</div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+      <button class="btn-save" id="saveBtn" onclick="savePlan()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const ADMIN_PIN = '4565';
+  const KEY = 'csp_data_v4';
+  const GOAL_TARGET = 40000;
+  const GOAL_MONTHLY = 1667;
+
+  const RECURRINGS = [
+    { desc: 'Rent',           amount: 1900, bucket: 'fixed',  cat: 'Rent / Mortgage' },
+    { desc: 'Car loan',       amount: 555,  bucket: 'fixed',  cat: 'Car loan' },
+    { desc: 'Car insurance',  amount: 200,  bucket: 'fixed',  cat: 'Car insurance' },
+    { desc: 'Electricity',    amount: 225,  bucket: 'fixed',  cat: 'Electricity' },
+    { desc: 'Water',          amount: 50,   bucket: 'fixed',  cat: 'Water' },
+    { desc: 'Gas',            amount: 200,  bucket: 'fixed',  cat: 'Gas' },
+    { desc: 'Groceries',      amount: 1100, bucket: 'fixed',  cat: 'Groceries' },
+    { desc: "Dad's internet", amount: 65,   bucket: 'fixed',  cat: "Dad's internet" },
+    { desc: 'Subscriptions',  amount: 70,   bucket: 'guilt',  cat: 'Subscriptions' },
+    { desc: 'Trainer',        amount: 100,  bucket: 'guilt',  cat: 'Trainer' },
+    { desc: 'Haircut',        amount: 120,  bucket: 'guilt',  cat: 'Haircut' },
+    { desc: 'Gym',            amount: 325,  bucket: 'guilt',  cat: 'Gym' },
+  ];
+
+  const BUCKETS = [
+    { key: 'fixed',   label: 'Fixed Costs', spending: true  },
+    { key: 'invest',  label: 'Investments', spending: false },
+    { key: 'savings', label: 'Savings',     spending: false },
+    { key: 'guilt',   label: 'Guilt-free',  spending: true  },
+  ];
+
+  let s = (() => {
+    try { const r = localStorage.getItem(KEY); return r ? JSON.parse(r) : def(); }
+    catch { return def(); }
+  })();
+
+  function def() {
+    return { income: 8000, pcts: { fixed: 53.69, invest: 6.25, savings: 20.84, guilt: 19.22 }, transactions: [], currentMonth: ym(new Date()) };
+  }
+
+  function ym(d) { return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+  function prevYm(m) {
+    const [y, mo] = m.split('-').map(Number);
+    const d = new Date(y, mo - 2, 1);
+    return ym(d);
+  }
+  function ymLabel(m) {
+    const [y, mo] = m.split('-').map(Number);
+    return new Date(y, mo - 1, 1).toLocaleString('default', { month: 'short', year: 'numeric' });
+  }
+
+  function persist() { localStorage.setItem(KEY, JSON.stringify(s)); }
+  function $$(id) { return document.getElementById(id); }
+  function fmt(n) { return '$' + Math.abs(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 }); }
+
+  let mode = null;
+  let activeFilter = 'all';
+  let pinEntry = '';
+
+  function selectAdmin() { pinEntry = ''; updateDots(); $$('pinError').textContent = ''; $$('pinOverlay').classList.add('open'); }
+  function selectViewer() { mode = 'viewer'; showApp(); }
+
+  function pinPress(d) {
+    if (pinEntry.length >= 4) return;
+    pinEntry += d; updateDots();
+    if (pinEntry.length === 4) setTimeout(checkPin, 100);
+  }
+  function pinDel() {
+    pinEntry = pinEntry.slice(0, -1); updateDots();
+    $$('pinError').textContent = '';
+    document.querySelectorAll('.pin-dot').forEach(d => d.classList.remove('error'));
+  }
+  function updateDots() {
+    for (let i = 0; i < 4; i++) {
+      const dot = $$(`d${i}`);
+      dot.classList.toggle('filled', i < pinEntry.length);
+      dot.classList.remove('error');
+    }
+  }
+  function checkPin() {
+    if (pinEntry === ADMIN_PIN) { $$('pinOverlay').classList.remove('open'); mode = 'admin'; showApp(); }
+    else {
+      document.querySelectorAll('.pin-dot').forEach(d => { d.classList.remove('filled'); d.classList.add('error'); });
+      $$('pinError').textContent = 'Incorrect PIN.';
+      setTimeout(() => { pinEntry = ''; updateDots(); $$('pinError').textContent = ''; }, 900);
+    }
+  }
+  function cancelPin() { $$('pinOverlay').classList.remove('open'); pinEntry = ''; updateDots(); }
+
+  document.addEventListener('keydown', e => {
+    if ($$('pinOverlay').classList.contains('open')) {
+      if (e.key >= '0' && e.key <= '9') pinPress(e.key);
+      if (e.key === 'Backspace') pinDel();
+      if (e.key === 'Escape') cancelPin();
+      return;
+    }
+    if (e.key === 'Escape') closeModal();
+    if (e.key === 'Enter') {
+      if ($$('planModal').classList.contains('open')) { if (!$$('saveBtn').disabled) savePlan(); return; }
+      const a = document.activeElement;
+      if (a === $$('txDesc') || a === $$('txAmt')) addTx();
+    }
+  });
+
+  function showApp() {
+    $$('landing').style.display = 'none';
+    $$('app').classList.add('visible');
+    const isAdmin = mode === 'admin';
+    document.body.classList.toggle('is-admin', isAdmin);
+    $$('viewerBanner').style.display = isAdmin ? 'none' : 'flex';
+    $$('modeBadge').textContent = isAdmin ? 'admin' : 'viewer';
+    $$('modeBadge').className = `mode-badge${isAdmin ? ' admin-badge' : ''}`;
+    buildMonths(); render();
+  }
+
+  function switchMode() {
+    if (mode === 'viewer') { selectAdmin(); }
+    else { mode = null; $$('app').classList.remove('visible'); document.body.classList.remove('is-admin'); $$('landing').style.display = 'flex'; }
+  }
+
+  function changeMonth() { s.currentMonth = $$('monthSelect').value; persist(); render(); }
+
+  function buildMonths() {
+    const sel = $$('monthSelect'); sel.innerHTML = '';
+    const now = new Date();
+    for (let i = -6; i <= 2; i++) {
+      const d = new Date(now.getFullYear(), now.getMonth() + i, 1);
+      const val = ym(d);
+      const o = document.createElement('option');
+      o.value = val; o.textContent = d.toLocaleString('default', { month: 'long', year: 'numeric' });
+      if (val === s.currentMonth) o.selected = true;
+      sel.appendChild(o);
+    }
+  }
+
+  function txsForMonth(m) { return s.transactions.filter(t => t.month === m); }
+
+  function spentByBucket(m) {
+    const spent = { fixed: 0, invest: 0, savings: 0, guilt: 0 };
+    txsForMonth(m).forEach(t => { spent[t.bucket] = (spent[t.bucket] || 0) + t.amount; });
+    return spent;
+  }
+
+  function totalDownPaymentSaved() {
+    return s.transactions.filter(t => t.cat === 'Down Payment').reduce((sum, t) => sum + t.amount, 0);
+  }
+
+  function render() {
+    const { income, pcts } = s;
+    const budgets = { fixed: income * pcts.fixed / 100, invest: income * pcts.invest / 100, savings: income * pcts.savings / 100, guilt: income * pcts.guilt / 100 };
+    $$('incomeDisplay').textContent = fmt(income);
+
+    const spent = spentByBucket(s.currentMonth);
+    const isAdmin = mode === 'admin';
+
+    BUCKETS.forEach(({ key }) => {
+      const bgt = budgets[key], sp = spent[key] || 0, over = sp > bgt;
+      $$(`b-${key}`).classList.toggle('over-budget', over);
+      $$(`spent-${key}`).textContent = fmt(sp);
+      $$(`bar-${key}`).style.width = Math.min((sp / bgt) * 100, 100) + '%';
+      if (isAdmin) {
+        $$(`of-${key}`).textContent = `of ${fmt(bgt)}`;
+        $$(`of-${key}`).className = `bucket-of admin-only${over ? ' over' : ''}`;
+        const r = $$(`rem-${key}`);
+        r.textContent = over ? `${fmt(Math.abs(bgt - sp))} over budget` : `${fmt(bgt - sp)} remaining`;
+        r.className = `bucket-rem admin-only ${over ? 'neg' : 'pos'}`;
+      }
+    });
+
+    $$('seg-fixed').style.flex = pcts.fixed;
+    $$('seg-invest').style.flex = pcts.invest;
+    $$('seg-savings').style.flex = pcts.savings;
+    $$('seg-guilt').style.flex = pcts.guilt;
+
+    // Goal
+    const totalSaved = totalDownPaymentSaved();
+    const goalPct = Math.min((totalSaved / GOAL_TARGET) * 100, 100);
+    const remaining = Math.max(GOAL_TARGET - totalSaved, 0);
+    const monthsLeft = remaining > 0 ? Math.ceil(remaining / GOAL_MONTHLY) : 0;
+    $$('goalFill').style.width = goalPct + '%';
+    $$('goalPct').textContent = goalPct.toFixed(1) + '%';
+    $$('goalSaved').textContent = `${fmt(totalSaved)} saved`;
+    $$('goalEta').innerHTML = totalSaved >= GOAL_TARGET
+      ? `<strong>Goal reached!</strong> You hit your $40,000 down payment.`
+      : `${fmt(remaining)} to go — on track in <strong>${monthsLeft} month${monthsLeft !== 1 ? 's' : ''}</strong>`;
+
+    renderRecurrings();
+    renderMoM();
+    renderList();
+  }
+
+  function renderRecurrings() {
+    BUCKETS.forEach(({ key }) => {
+      const el = $$(`rec-${key}`);
+      const items = RECURRINGS.filter(r => r.bucket === key);
+      if (!items.length) { el.style.display = 'none'; return; }
+      el.style.display = 'flex';
+      el.innerHTML = items.map(r => `<div class="rec-row"><span>${r.desc}</span><span>${fmt(r.amount)}/mo</span></div>`).join('');
+    });
+  }
+
+  function renderMoM() {
+    const cur = s.currentMonth;
+    const prev = prevYm(cur);
+    const thisSpent = spentByBucket(cur);
+    const lastSpent = spentByBucket(prev);
+    const hasPrev = txsForMonth(prev).length > 0;
+
+    $$('momThisLabel').textContent = ymLabel(cur);
+    $$('momLastLabel').textContent = ymLabel(prev);
+
+    const body = $$('momBody');
+
+    if (!hasPrev) {
+      body.innerHTML = `<div class="mom-no-data">No data for ${ymLabel(prev)} yet — comparisons will appear once you've tracked a full month.</div>`;
+      return;
+    }
+
+    const maxSpent = Math.max(...BUCKETS.map(({ key }) => Math.max(thisSpent[key] || 0, lastSpent[key] || 0, 1)));
+
+    body.innerHTML = `
+      <div class="mom-grid">
+        ${BUCKETS.map(({ key, label, spending }) => {
+          const cur = thisSpent[key] || 0;
+          const prev = lastSpent[key] || 0;
+          const diff = cur - prev;
+          const absDiff = Math.abs(diff);
+          const pct = maxSpent > 0 ? (cur / maxSpent) * 100 : 0;
+          const colors = { fixed: 'var(--fixed-color)', invest: 'var(--invest-color)', savings: 'var(--savings-color)', guilt: 'var(--guilt-color)' };
+
+          let deltaClass = 'neutral';
+          let deltaLabel = '—';
+          if (diff !== 0) {
+            const isUp = diff > 0;
+            deltaClass = spending ? (isUp ? 'spend-up' : 'spend-down') : (isUp ? 'save-up' : 'save-down');
+            deltaLabel = `${isUp ? '▲' : '▼'} ${fmt(absDiff)}`;
+          }
+
+          return `
+            <div class="mom-cell">
+              <div class="mom-bucket-name ${key}">${label}</div>
+              <div class="mom-amounts">
+                <div class="mom-this">${fmt(cur)}</div>
+                <div class="mom-last">vs ${fmt(prev)}</div>
+              </div>
+              <div class="mom-delta ${deltaClass}">${deltaLabel}</div>
+              <div class="mom-bar-wrap">
+                <div class="mom-bar-fill" style="width:${pct.toFixed(1)}%;background:${colors[key]}"></div>
+              </div>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }
+
+  function renderList() {
+    const list = $$('txList');
+    const isAdmin = mode === 'admin';
+    let txs = txsForMonth(s.currentMonth).slice().reverse();
+    if (activeFilter !== 'all') txs = txs.filter(t => t.bucket === activeFilter);
+    if (!txs.length) { list.innerHTML = '<div class="tx-empty">No transactions this month.</div>'; return; }
+    list.innerHTML = txs.map(t => `
+      <li class="tx-item">
+        <div class="tx-pip ${t.bucket}"></div>
+        <div class="tx-body">
+          <div class="tx-desc">${t.desc}</div>
+          <div class="tx-sub">${t.cat}</div>
+        </div>
+        <div class="tx-right">
+          <div class="tx-amount">${fmt(t.amount)}</div>
+          <div class="tx-date">${fmtDate(t.date)}</div>
+        </div>
+        ${isAdmin ? `<button class="tx-del" onclick="delTx('${t.id}')">×</button>` : ''}
+      </li>`).join('');
+  }
+
+  function fmtDate(iso) { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }); }
+
+  function addTx() {
+    const desc = $$('txDesc').value.trim();
+    const amt = parseFloat($$('txAmt').value);
+    const catVal = $$('txCat').value;
+    if (!desc || !amt || amt <= 0) return;
+    const [bucket, cat] = catVal.split('|');
+    s.transactions.push({ id: Date.now().toString(), desc, amount: amt, bucket, cat, date: new Date().toISOString(), month: s.currentMonth });
+    persist(); $$('txDesc').value = ''; $$('txAmt').value = ''; render();
+  }
+
+  function delTx(id) { s.transactions = s.transactions.filter(t => t.id !== id); persist(); render(); }
+
+  function setFilter(f, btn) {
+    activeFilter = f;
+    document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active'); renderList();
+  }
+
+  function openModal() {
+    $$('incomeIn').value = s.income;
+    $$('pFixed').value = s.pcts.fixed; $$('pInvest').value = s.pcts.invest;
+    $$('pSavings').value = s.pcts.savings; $$('pGuilt').value = s.pcts.guilt;
+    checkPcts(); $$('planModal').classList.add('open'); $$('incomeIn').focus();
+  }
+  function closeModal() { $$('planModal').classList.remove('open'); }
+  function checkPcts() {
+    const total = +$$('pFixed').value + +$$('pInvest').value + +$$('pSavings').value + +$$('pGuilt').value;
+    const ok = Math.abs(total - 100) < 0.5;
+    $$('pctSum').textContent = `Total: ${total.toFixed(1)}%${ok ? ' ✓' : ' — must equal 100%'}`;
+    $$('pctSum').className = `pct-sum${ok ? '' : ' bad'}`;
+    $$('saveBtn').disabled = !ok;
+  }
+  function savePlan() {
+    const income = parseFloat($$('incomeIn').value);
+    if (income > 0) s.income = income;
+    s.pcts = { fixed: parseFloat($$('pFixed').value), invest: parseFloat($$('pInvest').value), savings: parseFloat($$('pSavings').value), guilt: parseFloat($$('pGuilt').value) };
+    persist(); render(); closeModal();
+  }
+
+  $$('planModal').addEventListener('click', e => { if (e.target === $$('planModal')) closeModal(); });
+
+  // PWA service worker
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
